@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Language } from './content';
 
-export type Progress = { stars: number; byZone: Record<string, number>; firstLanguage: Language; languageJump: boolean; volume: number; breakMinutes: number; startedAt: number };
-export const initialProgress: Progress = { stars: 0, byZone: {}, firstLanguage: 'sw', languageJump: false, volume: 1, breakMinutes: 18, startedAt: Date.now() };
+export type Progress = { stars: number; byZone: Record<string, number>; firstLanguage: Language; languageJump: boolean; volume: number; breakMinutes: number; startedAt: number; onboardingComplete: boolean };
+export const initialProgress: Progress = { stars: 0, byZone: {}, firstLanguage: 'sw', languageJump: false, volume: 1, breakMinutes: 18, startedAt: Date.now(), onboardingComplete: false };
 const key = 'safariShule.progress.v1';
 
 export async function loadProgress(): Promise<Progress> {

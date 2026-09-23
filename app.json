@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "scheme": "safarishule",
     "orientation": "landscape",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/safari-shule-app-icon.png",
+    "backgroundColor": "#123D3B",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -17,10 +18,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#123D3B",
+        "foregroundImage": "./assets/safari-shule-emblem.png",
+        "monochromeImage": "./assets/safari-shule-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.safarishule.app",
@@ -54,6 +54,14 @@
           "ios": {
             "enableSceneSupport": true
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#123D3B",
+          "image": "./assets/safari-shule-emblem.png",
+          "imageWidth": 220
         }
       ]
     ]

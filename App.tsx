@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { CopyKey, Language, Zone, pair, zones } from './src/content';
 import { awardStar, isCorrect, Question, testQuestions } from './src/engine';
 import { narrate } from './src/audio';
@@ -10,8 +11,11 @@ import { MarketGame } from './src/MarketGame';
 import { ZoneAdventureGame } from './src/ZoneAdventureGame';
 import { QuizWorld, WorldMap, WorldShell, worldStyles } from './src/WorldGame';
 import { BuildVillageGame, StopGoGame } from './src/MiniGames';
+import { LanguageWelcome } from './src/Startup';
 
-type Screen = 'home' | 'map' | 'market' | 'zoneAdventure' | 'quiz' | 'test' | 'report' | 'memory' | 'sort' | 'build' | 'stopGo' | 'gate' | 'parent';
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+type Screen = 'welcome' | 'map' | 'market' | 'zoneAdventure' | 'quiz' | 'test' | 'report' | 'memory' | 'sort' | 'build' | 'stopGo' | 'gate' | 'parent';
 const colors = { ink: '#20334A', cream: '#FFF8EA', navy: '#17445E', white: '#FFFFFF', accent: '#FFDA73', soft: '#F2E9D7' };
 
 function Bilingual({ k, first, large = false }: { k: CopyKey; first: Language; large?: boolean }) {
@@ -23,7 +27,8 @@ function Action({ k, first, onPress, symbol, tint = colors.accent }: { k: CopyKe
 }
 export default function App() {
   const [progress, setProgress] = useState<Progress>(initialProgress);
-  const [screen, setScreen] = useState<Screen>('market');
+  const [screen, setScreen] = useState<Screen>('welcome');
+  const [hydrated, setHydrated] = useState(false);
   const [queue, setQueue] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [firstTry, setFirstTry] = useState(true);
@@ -41,7 +46,17 @@ export default function App() {
   const first = progress.firstLanguage;
   const current = queue[index];
 
-  useEffect(() => { loadProgress().then(setProgress); }, []);
+  useEffect(() => {
+    let active = true;
+    loadProgress().then(saved => {
+      if (!active) return;
+      setProgress(saved);
+      setScreen(saved.onboardingComplete ? 'map' : 'welcome');
+      setHydrated(true);
+    });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => { if (hydrated) void SplashScreen.hideAsync(); }, [hydrated]);
   useEffect(() => { if (current) void narrate(current.prompt, promptLanguage, progress.volume); }, [current?.id, promptLanguage]);
   useEffect(() => {
     if ((screen !== 'quiz' && screen !== 'test') || feedback !== 'correct') return;
@@ -59,6 +74,11 @@ export default function App() {
   async function updateProgress(next: Progress) {
     setProgress(next);
     if (!await saveProgress(next)) Alert.alert(pair('savedError', first).primary);
+  }
+  function chooseLanguage(language: Language) {
+    const next = { ...progress, firstLanguage: language, onboardingComplete: true, startedAt: Date.now() };
+    void updateProgress(next);
+    setScreen('map');
   }
   function startQuiz(items: Question[], selectedZone: Zone, test = false) {
     setZone(selectedZone); setQueue(items); setIndex(0); setFirstTry(true); setFeedback(null); setSessionStars(0); setPromptLanguage(first); setScreen(test ? 'test' : 'quiz');
@@ -80,6 +100,10 @@ export default function App() {
   const tabs = <View style={styles.tabs}><Action k="home" first={first} symbol="🗺️" onPress={() => setScreen('map')} /><Action k="test" first={first} symbol="⭐" onPress={() => startQuiz(testQuestions(), 'shuleni', true)} /><Action k="parent" first={first} symbol="👨🏾‍👩🏾‍👧🏾" onPress={openGate} /></View>;
   const title = useMemo(() => screen === 'test' ? 'test' : screen === 'quiz' ? zone : screen === 'map' ? 'chooseZone' : screen === 'report' ? 'report' : screen === 'parent' ? 'dashboard' : screen === 'gate' ? 'parentGate' : screen === 'memory' ? 'memory' : screen === 'sort' ? 'sort' : screen === 'build' ? 'build' : screen === 'stopGo' ? 'stopGo' : 'appName', [screen, zone]);
 
+  if (!hydrated) return null;
+
+  if (screen === 'welcome') return <LanguageWelcome onChoose={chooseLanguage} />;
+
   if (screen === 'market') return <MarketGame initialLanguage={first} totalStars={progress.stars} onExit={() => setScreen('map')} onLanguageChange={language => void updateProgress({ ...progress, firstLanguage: language })} onAward={() => {
     setProgress(previous => {
       const next = { ...previous, stars: previous.stars + 1, byZone: { ...previous.byZone, sokoni: (previous.byZone.sokoni || 0) + 1 } };
@@ -96,7 +120,7 @@ export default function App() {
     });
   }} />;
 
-  if (screen === 'map') return <WorldMap primary={first} stars={progress.stars} onZone={selected => { setZone(selected); setScreen(selected === 'sokoni' ? 'market' : 'zoneAdventure'); }} onActivity={activity => {
+  if (screen === 'map') return <WorldMap primary={first} stars={progress.stars} onLanguageChange={() => void updateProgress({ ...progress, firstLanguage: first === 'sw' ? 'en' : 'sw' })} onZone={selected => { setZone(selected); setScreen(selected === 'sokoni' ? 'market' : 'zoneAdventure'); }} onActivity={activity => {
     if (activity === 'memory') { setZone('pori'); setMemoryCards(['🦒','🐘','🍌','🦒','🐘','🍌']); setMemoryMatched([]); setMemoryOpen([]); }
     if (activity === 'sort') { setZone('bahari'); setSortStep(0); }
     if (activity === 'build') setZone('nyumbani');
@@ -125,10 +149,9 @@ export default function App() {
 
   return <SafeAreaView style={styles.root}><ScrollView contentContainerStyle={styles.scroll}>
     <View style={styles.header}><Bilingual k={title} first={first} large /><View style={styles.starCount}><Visual value="⭐" size={24} /><Text style={styles.starTotal}>{progress.stars}</Text></View></View>
-    {screen === 'home' && <View style={styles.center}><Visual value="🦒🌴🏠" size={72} /><Action k="play" first={first} symbol="▶️" tint="#F5C760" onPress={() => setScreen('market')} /><Action k="language" first={first} symbol="🌐" tint={colors.soft} onPress={() => void updateProgress({ ...progress, firstLanguage: first === 'sw' ? 'en' : 'sw' })} /></View>}
     {screen === 'gate' && <View style={styles.center}><Bilingual k="gatePrompt" first={first} large /><Text style={styles.visual}>{gateSum[0]} + {gateSum[1]} = ?</Text><TextInput style={styles.input} keyboardType="number-pad" value={gateAnswer} onChangeText={setGateAnswer} accessibilityLabel={pair('gatePrompt', first).primary} /><Action k="next" first={first} onPress={solveGate} /></View>}
-    {screen === 'parent' && <ParentArea progress={progress} first={first} onChange={updateProgress} onDelete={async () => { if (await deleteProgress()) { setProgress(initialProgress); setScreen('home'); } else Alert.alert(pair('savedError', first).primary); }} />}
-    {breakShown && screen !== 'parent' && screen !== 'gate' && <View style={styles.breakCard}><Visual value="🌙" size={40} /><Bilingual k="break" first={first} large /><Action k="done" first={first} onPress={() => { setBreakShown(false); void updateProgress({ ...progress, startedAt: Date.now() }); setScreen('home'); }} /></View>}
+    {screen === 'parent' && <ParentArea progress={progress} first={first} onChange={updateProgress} onDelete={async () => { if (await deleteProgress()) { setProgress(initialProgress); setScreen('welcome'); } else Alert.alert(pair('savedError', first).primary); }} />}
+    {breakShown && screen !== 'parent' && screen !== 'gate' && <View style={styles.breakCard}><Visual value="🌙" size={40} /><Bilingual k="break" first={first} large /><Action k="done" first={first} onPress={() => { setBreakShown(false); void updateProgress({ ...progress, startedAt: Date.now() }); setScreen('map'); }} /></View>}
   </ScrollView>{tabs}</SafeAreaView>;
 }
 
